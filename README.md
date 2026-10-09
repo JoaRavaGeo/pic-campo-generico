@@ -33,6 +33,18 @@ Se pueden guardar varias salidas en el celular y elegir cuál usar. La de **Para
 
 **El satélite de Esri** (Capas → «Satélite sin señal») sigue como antes: con internet se bajan las teselas de la zona. Si la salida trae el fondo Sentinel-2, ya hay un satélite sin señal sin bajar nada más.
 
+## Color de limonita (pórfidos)
+
+En cada estación hay un campo **"Color de limonita (pórfidos)"** con la tabla de Blanchard (1968) para interpretar el
+*leached capping* en el momento: castaño rojizo (hematita indígena) = alta relación sulfuros de Cu/Fe;
+amarillo-marrón (goethita + jarosita) = pirita residual; rojo-naranja = pirita + calcopirita; ocre violáceo =
+calcopirita; naranja-ocre a chocolate = bornita. **Solo vale para pórfidos:** en epitermales y vetas el As, el Sb,
+el Mn y los carbonatos cambian los colores. El valor y su interpretación viajan en la exportación (`estaciones.csv`,
+`estaciones.geojson`, KML, texto y el respaldo `.zip`), que es lo que GeoExplo va a leer en la vuelta de datos de
+campo (Tramo 7).
+
+Blanchard, R. (1968). Interpretation of leached outcrops. Nevada Bureau of Mines Bulletin 66.
+
 ## Qué hay en el repo
 
 | Archivo | Qué es |

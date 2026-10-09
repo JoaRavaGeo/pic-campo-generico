@@ -2,7 +2,7 @@
    Convive con PIC Campo original en el mismo celular: todos sus cachés empiezan con "picg-" y sólo borra
    los suyos. Como las dos apps comparten el origen (github.io), la original puede borrar estos cachés al
    actualizarse: por eso la app también queda copiada en IndexedDB y se restaura sola, sin conexión. */
-const VERSION = 'g2-0-0-1';
+const VERSION = 'g2-0-0-2';
 const PREF = 'picg-';
 const SHELL = PREF + 'app-' + VERSION;
 const TILES = PREF + 'teselas-v1';

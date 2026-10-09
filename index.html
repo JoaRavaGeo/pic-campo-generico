@@ -1544,6 +1544,18 @@ const TIPOS = [
   ['paleo', 'Paleocorriente', 'linea'], ['linea', 'Otra línea', 'linea'],
 ];
 const TIPO = Object.fromEntries(TIPOS.map(t => [t[0], { id: t[0], label: t[1], clase: t[2] }]));
+/* Color de limonita (Blanchard, 1968): interpretación en el momento, solo para pórfidos (Tramo 4e de GeoExplo) */
+const LIMONITA = [
+  { id: 'hematita_castana', label: 'Castaño rojizo oscuro (hematita indígena)', interp: 'Hematita "indígena" castaña: alta relación sulfuros de Cu / sulfuros de Fe (calcosina/calcopirita lixiviadas en el lugar). Lo más favorable en un leached capping.' },
+  { id: 'goethita_jarosita', label: 'Amarillo a marrón (goethita + jarosita)', interp: 'Goethita + jarosita: pirita residual (la pirita sola, sin Cu, deja jarosita y goethita amarillo-marrón).' },
+  { id: 'rojo_naranja', label: 'Rojo-naranja', interp: 'Pirita + calcopirita.' },
+  { id: 'ocre_violaceo', label: 'Ocre violáceo', interp: 'Calcopirita.' },
+  { id: 'naranja_chocolate', label: 'Naranja-ocre a chocolate', interp: 'Bornita.' },
+  { id: 'otro', label: 'Otro / mezcla (describir)', interp: 'Describí el color y la textura (boxwork, relleno, transportada o indígena) en la descripción.' },
+];
+const LIMONITA_ID = Object.fromEntries(LIMONITA.map(l => [l.id, l]));
+const LIMONITA_AVISO = 'Solo vale para pórfidos de Cu (Blanchard, 1968). En epitermales y vetas el As, el Sb, el Mn y los carbonatos cambian los colores: no lo uses ahí para inferir sulfuros.';
+const LIMONITA_REF = 'Blanchard, R. (1968). Interpretation of leached outcrops. Nevada Bureau of Mines Bulletin 66.';
 const TIPO_COLOR = { S0: '#2a5d8f', falla: '#b0452a', diaclasa: '#7a6a55', dique: '#8e3fa0', veta: '#c98a1b', contacto: '#2f5d4a', foliacion: '#4b7f9e', plano: '#555', estria: '#b0452a', lineacion: '#2f5d4a', eje: '#8e3fa0', paleo: '#2a5d8f', linea: '#555' };
 
 /* Contenido general de la guía (la salida puede agregar unidades, estructuras, objetivos y su propia lista) */
@@ -2658,6 +2670,8 @@ const Libreta = {
         <label class="fld"><span>Unidad / litología</span><input id="ed-uni" list="dl-unidades" value="${esc(e.unidad)}" placeholder="Ej.: Fm. Agua de la Zorra"></label>
         <label class="fld"><span>Descripción</span><textarea id="ed-desc" rows="7" placeholder="Litología, textura, color, estructuras, contactos, alteración, interpretación, dudas…">${esc(e.desc)}</textarea></label>
         <label class="fld"><span>Muestras</span><input id="ed-mue" value="${esc(e.muestras)}" placeholder="Ej.: ${esc(e.codigo)}-M1, ${esc(e.codigo)}-M2"></label>
+        <label class="fld"><span>Color de limonita (pórfidos)</span><select id="ed-lim"><option value="">—</option>${LIMONITA.map(l => '<option value="' + l.id + '"' + (e.limonita === l.id ? ' selected' : '') + '>' + esc(l.label) + '</option>').join('')}</select></label>
+        <div class="card small" id="ed-lim-int" ${e.limonita ? '' : 'hidden'}></div>
         <section class="ed-sec"><div class="ed-sec-h"><h4>Mediciones</h4><button class="btn sm ghost" id="ed-stereo">Estereograma</button></div><div id="ed-meds"></div>
           <div class="row-btns"><button class="btn" id="ed-med-b">◎ Medir con el celu</button><button class="btn" id="ed-med-m">✎ Anotar medición</button></div></section>
         <section class="ed-sec"><div class="ed-sec-h"><h4>Fotos</h4></div><div class="thumbs" id="ed-fotos"></div>
@@ -2669,9 +2683,11 @@ const Libreta = {
         <p class="muted small center">Se guarda solo · creada ${esc(fmtFecha(e.creado))}</p>
       </div>`, { full: true, onClose: () => { vivo = false; guardar.flush && guardar.flush(); this.render(); document.dispatchEvent(new Event('estaciones')); } });
     const el = s.el;
-    const doSave = async () => { e.codigo = $('#ed-cod', el).value.trim() || e.codigo; e.parada = $('#ed-par', el).value; e.unidad = $('#ed-uni', el).value; e.desc = $('#ed-desc', el).value; e.muestras = $('#ed-mue', el).value; e.editado = nowISO(); await DB.put('estaciones', e); $('#ed-tit', el).textContent = e.codigo; };
+    const doSave = async () => { e.codigo = $('#ed-cod', el).value.trim() || e.codigo; e.parada = $('#ed-par', el).value; e.unidad = $('#ed-uni', el).value; e.desc = $('#ed-desc', el).value; e.muestras = $('#ed-mue', el).value; e.limonita = $('#ed-lim', el).value; e.editado = nowISO(); await DB.put('estaciones', e); $('#ed-tit', el).textContent = e.codigo; };
     const guardar = debounce(doSave, 500); guardar.flush = doSave;
-    ['#ed-cod', '#ed-par', '#ed-uni', '#ed-desc', '#ed-mue'].forEach(q => { $(q, el).addEventListener('input', guardar); $(q, el).addEventListener('change', guardar); });
+    ['#ed-cod', '#ed-par', '#ed-uni', '#ed-desc', '#ed-mue', '#ed-lim'].forEach(q => { $(q, el).addEventListener('input', guardar); $(q, el).addEventListener('change', guardar); });
+    const renderLim = () => { const l = LIMONITA_ID[$('#ed-lim', el).value]; const box = $('#ed-lim-int', el); box.hidden = !l; if (l) box.innerHTML = '<b>Interpretación:</b> ' + esc(l.interp) + '<p class="muted small">⚠ ' + esc(LIMONITA_AVISO) + '</p>'; };
+    $('#ed-lim', el).addEventListener('change', renderLim); renderLim();
     const renderLoc = () => {
       const c = fmtCoord(e.lat, e.lon);
       $('#ed-loc', el).innerHTML = `<div class="loc-main mono">${esc(c.main)}</div><div class="muted small">${esc(c.sub)}${e.acc != null ? ' · ±' + Math.round(e.acc) + ' m' : ''}${e.alt != null ? ' · GPS ' + Math.round(e.alt) + ' m s.n.m.' : ''}${e.lat != null && Relieve.cota(e.lat, e.lon) != null ? ' · cota del modelo ≈ ' + Math.round(Relieve.cota(e.lat, e.lon)) + ' m' : ''}</div>
@@ -3619,10 +3635,10 @@ const Exportar = {
     const byId = Object.fromEntries(est.map(e => [e.id, e]));
     const files = [];
     // estaciones.csv
-    const rE = [['codigo', 'fecha', 'parada', 'unidad', 'descripcion', 'muestras', 'lat', 'lon', 'utm19s_e', 'utm19s_n', 'gk2_e', 'gk2_n', 'altitud_gps_m', 'cota_modelo_m', 'precision_m', 'n_mediciones', 'n_fotos', 'n_croquis']];
+    const rE = [['codigo', 'fecha', 'parada', 'unidad', 'descripcion', 'muestras', 'limonita', 'limonita_interpretacion', 'lat', 'lon', 'utm19s_e', 'utm19s_n', 'gk2_e', 'gk2_n', 'altitud_gps_m', 'cota_modelo_m', 'precision_m', 'n_mediciones', 'n_fotos', 'n_croquis']];
     for (const e of est) {
       const u = e.lat != null ? tmFwd(e.lat, e.lon, PROJ.utm) : ['', ''], g = e.lat != null ? tmFwd(e.lat, e.lon, PROJ.gk) : ['', ''];
-      rE.push([e.codigo, e.fecha, e.parada, e.unidad, e.desc, e.muestras, e.lat?.toFixed(7), e.lon?.toFixed(7), u[0] !== '' ? Math.round(u[0]) : '', u[1] !== '' ? Math.round(u[1]) : '', g[0] !== '' ? Math.round(g[0]) : '', g[1] !== '' ? Math.round(g[1]) : '', e.alt != null ? Math.round(e.alt) : '', e.lat != null && Relieve.cota(e.lat, e.lon) != null ? Math.round(Relieve.cota(e.lat, e.lon)) : '', e.acc != null ? Math.round(e.acc) : '',
+      rE.push([e.codigo, e.fecha, e.parada, e.unidad, e.desc, e.muestras, e.limonita ? LIMONITA_ID[e.limonita]?.label || e.limonita : '', e.limonita ? LIMONITA_ID[e.limonita]?.interp || '' : '', e.lat?.toFixed(7), e.lon?.toFixed(7), u[0] !== '' ? Math.round(u[0]) : '', u[1] !== '' ? Math.round(u[1]) : '', g[0] !== '' ? Math.round(g[0]) : '', g[1] !== '' ? Math.round(g[1]) : '', e.alt != null ? Math.round(e.alt) : '', e.lat != null && Relieve.cota(e.lat, e.lon) != null ? Math.round(Relieve.cota(e.lat, e.lon)) : '', e.acc != null ? Math.round(e.acc) : '',
         meds.filter(m => m.estacionId === e.id).length, media.filter(m => m.estacionId === e.id && m.tipo === 'foto').length, media.filter(m => m.estacionId === e.id && m.tipo === 'croquis').length]);
     }
     files.push({ name: 'estaciones.csv', data: this.csv(rE) });
@@ -3634,13 +3650,13 @@ const Exportar = {
     }
     files.push({ name: 'mediciones.csv', data: this.csv(rM) });
     // GeoJSON
-    const gj = { type: 'FeatureCollection', features: est.filter(e => e.lat != null).map(e => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [+e.lon.toFixed(7), +e.lat.toFixed(7)].concat(e.alt != null ? [Math.round(e.alt)] : []) }, properties: { codigo: e.codigo, fecha: e.fecha, parada: e.parada, unidad: e.unidad, descripcion: e.desc, muestras: e.muestras, mediciones: meds.filter(m => m.estacionId === e.id).map(m => (TIPO[m.tipo]?.label || m.tipo) + ' ' + Med.texto(m, true)).join('; ') } })) };
+    const gj = { type: 'FeatureCollection', features: est.filter(e => e.lat != null).map(e => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [+e.lon.toFixed(7), +e.lat.toFixed(7)].concat(e.alt != null ? [Math.round(e.alt)] : []) }, properties: { codigo: e.codigo, fecha: e.fecha, parada: e.parada, unidad: e.unidad, descripcion: e.desc, muestras: e.muestras, limonita: e.limonita || null, limonita_color: e.limonita ? LIMONITA_ID[e.limonita]?.label || e.limonita : null, limonita_interpretacion: e.limonita ? (LIMONITA_ID[e.limonita]?.interp || '') + ' ' + LIMONITA_AVISO : null, mediciones: meds.filter(m => m.estacionId === e.id).map(m => (TIPO[m.tipo]?.label || m.tipo) + ' ' + Med.texto(m, true)).join('; ') } })) };
     for (const r of recs) if (r.puntos.length > 1) gj.features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: r.puntos.map(p => [p[1], p[0]]) }, properties: { nombre: r.nombre } });
     files.push({ name: 'estaciones.geojson', data: JSON.stringify(gj, null, 1) });
     // KML
     const x = this.xml;
     let kml = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + x((Salida.m?.nombre || 'PIC Campo') + ' · estaciones') + '</name><Style id="e"><IconStyle><color>ff2b45b0</color><scale>0.9</scale></IconStyle></Style><Style id="f"><IconStyle><scale>0.8</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/camera.png</href></Icon></IconStyle></Style>';
-    for (const e of est.filter(e => e.lat != null)) kml += `<Placemark><name>${x(e.codigo)}</name><styleUrl>#e</styleUrl><description>${x([e.parada && 'Parada ' + e.parada, e.unidad, e.desc, e.muestras && 'Muestras: ' + e.muestras, ...meds.filter(m => m.estacionId === e.id).map(m => (TIPO[m.tipo]?.label || m.tipo) + ': ' + Med.texto(m))].filter(Boolean).join('\n'))}</description><Point><coordinates>${e.lon.toFixed(7)},${e.lat.toFixed(7)}${e.alt != null ? ',' + Math.round(e.alt) : ''}</coordinates></Point></Placemark>`;
+    for (const e of est.filter(e => e.lat != null)) kml += `<Placemark><name>${x(e.codigo)}</name><styleUrl>#e</styleUrl><description>${x([e.parada && 'Parada ' + e.parada, e.unidad, e.desc, e.muestras && 'Muestras: ' + e.muestras, e.limonita && 'Limonita: ' + (LIMONITA_ID[e.limonita]?.label || e.limonita) + ' → ' + (LIMONITA_ID[e.limonita]?.interp || '') + ' (solo pórfidos)', ...meds.filter(m => m.estacionId === e.id).map(m => (TIPO[m.tipo]?.label || m.tipo) + ': ' + Med.texto(m))].filter(Boolean).join('\n'))}</description><Point><coordinates>${e.lon.toFixed(7)},${e.lat.toFixed(7)}${e.alt != null ? ',' + Math.round(e.alt) : ''}</coordinates></Point></Placemark>`;
     kml += '__FOTOS__';
     for (const r of recs) if (r.puntos.length > 1) kml += `<Placemark><name>${x(r.nombre)}</name><LineString><tessellate>1</tessellate><coordinates>${r.puntos.map(p => p[1] + ',' + p[0]).join(' ')}</coordinates></LineString></Placemark>`;
     kml += '</Document></kml>';
@@ -3655,7 +3671,7 @@ const Exportar = {
     let txt = 'LIBRETA DE CAMPO · ' + (Salida.m?.nombre || 'PIC Campo') + '\nExportado: ' + fmtFecha(nowISO()) + '\nCoordenadas ' + PROJ.utm.nombre + ' (WGS84). Mediciones en ' + refLabel() + '.\n\n';
     for (const e of est) {
       txt += '══ ' + e.codigo + ' · ' + fmtFecha(e.fecha) + (e.parada ? ' · parada ' + e.parada : '') + '\n' + coordLine(e.lat, e.lon, 'utm') + (e.acc != null ? ' (±' + Math.round(e.acc) + ' m)' : '') + (e.alt != null ? ' · ' + Math.round(e.alt) + ' m s.n.m.' : '') + '\n';
-      if (e.unidad) txt += 'Unidad: ' + e.unidad + '\n'; if (e.desc) txt += e.desc + '\n'; if (e.muestras) txt += 'Muestras: ' + e.muestras + '\n';
+      if (e.unidad) txt += 'Unidad: ' + e.unidad + '\n'; if (e.desc) txt += e.desc + '\n'; if (e.muestras) txt += 'Muestras: ' + e.muestras + '\n'; if (e.limonita) txt += 'Limonita: ' + (LIMONITA_ID[e.limonita]?.label || e.limonita) + ' → ' + (LIMONITA_ID[e.limonita]?.interp || '') + ' (' + LIMONITA_AVISO + ')\n';
       for (const m of meds.filter(m => m.estacionId === e.id)) txt += '  · ' + (TIPO[m.tipo]?.label || m.tipo) + ': ' + Med.texto(m) + (m.obs ? ' — ' + m.obs : '') + '\n';
       const na = media.filter(m => m.estacionId === e.id && m.tipo === 'audio');
       if (na.length) txt += '  · Notas de voz: ' + na.map(a => Voz.fmtDur(a.dur) + (a.nota ? ' (' + a.nota + ')' : '')).join(', ') + ' — carpeta audios/\n';
