@@ -41,6 +41,7 @@ salida_campo_<proyecto>_<fecha>.zip
 | `atribuciones` | lista de texto | sí | Atribuciones que hay que mostrar (p. ej. Copernicus). |
 | `relieve` | objeto | no | Modelo de elevación para curvas de nivel y cota en PIC Campo (ver "Extensiones de PIC Campo"). |
 | `extras` | objeto | no | `{"pic": "extras/pic.json"}`: contenido enriquecido para PIC Campo (ver abajo). |
+| `autor`, `copyright`, `licencia` | texto | no | Autoría de GeoExplo (desde la 0.4.0): `"Joaquín Ravazzani"`, `"© 2026 Joaquín Ravazzani. Todos los derechos reservados. Uso académico no comercial."` y la licencia de uso. |
 
 ### Capas (`capas[]`)
 
@@ -182,6 +183,7 @@ Las usa la salida de Paramillos (PIC I 2026), que estaba embebida en la app orig
 Historial:
 
 - **Pendientes previos al campo (2026-10-10), sigue siendo la versión 1** (todo opcional): capa "Paradas" con
-  `rol: "paradas_planificadas"`, `estilo.simbolo` y `radio_sugerencia_m`. Los paquetes anteriores siguen valiendo y un
+  `rol: "paradas_planificadas"`, `estilo.simbolo` y `radio_sugerencia_m`; y `autor`, `copyright` y `licencia` en el
+  manifiesto. Los paquetes anteriores siguen valiendo y un
   lector anterior muestra la capa como puntos comunes.
 - **Tramo 6 (2026-10-08), sigue siendo la versión 1** (todo opcional): capa de fondo satelital Sentinel-2 (`fondo`, `fechas`), `remuestreo`, leyendas con paleta como lista y `tipo: "nota"`, colores `#rrggbb`, paradas sin geometría y con `etiqueta`/`nombre`/`unidad`, `relieve` y `extras.pic` para PIC Campo.
