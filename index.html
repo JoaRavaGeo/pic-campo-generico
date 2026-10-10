@@ -792,6 +792,10 @@ body.sin-fondo .grid-lbl { color: var(--muted); text-shadow: none; }
 .mk-parada { display: flex; align-items: center; justify-content: center; }
 .mk-parada span { width: 30px; height: 30px; border-radius: 50%; background: #fffdf8; border: 3px solid #b0452a; color: #b0452a; font: 800 12px/24px var(--sans); text-align: center; box-shadow: 0 1px 5px rgba(0,0,0,.5); }
 .mk-parada.plan span { background: #b0452a; color: #fff; border-color: #fff; }
+.mk-pplan { position: relative; }
+.mk-pplan i { position: absolute; left: 3px; bottom: 0; width: 3px; height: 26px; background: #3b1053; border-radius: 1px; }
+.mk-pplan b { position: absolute; left: 6px; top: 0; min-width: 18px; height: 14px; padding: 0 4px; background: var(--pc, #6a1b9a); color: #fff; font: 800 10px/14px var(--sans); border-radius: 0 3px 3px 0; box-shadow: 0 1px 4px rgba(0,0,0,.45); white-space: nowrap; }
+.sug-par { border-left: 4px solid #6a1b9a; }
 .mk-est i { position: absolute; left: 0; top: 0; width: 14px; height: 14px; background: #2f5d4a; border: 2px solid #fff; transform: rotate(45deg); box-shadow: 0 1px 3px rgba(0,0,0,.5); }
 .mk-est span { position: absolute; left: 16px; top: -2px; font: 700 11px/16px var(--sans); color: #fff; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; }
 .mk-gps { pointer-events: none; }
@@ -2426,6 +2430,25 @@ function popupProps(p, capa, ll) {
   const ir = ll ? '<div class="pop-btns"><button class="btn sm primary" onclick="TeleMapa.ir(' + ll.lat + ',' + ll.lng + ',\'' + esc(String(nom).replace(/['"\\]/g, '')) + '\')">Ir aquí</button></div>' : '';
   return '<div class="pop"><b>' + esc(nom) + '</b><div class="muted small">' + esc(capa.nombre) + '</div><table class="props">' + filas + '</table>' + ir + '</div>';
 }
+/* Paradas planificadas a mano en GeoExplo (capa con rol "paradas_planificadas", ver docs/formato_paquete_campo.md):
+   se dibujan con banderas y, al crear o mover una estación a ≤ radio_sugerencia_m (100 m), se sugiere su nombre. */
+const ParadasPlan = {
+  list: [], radio: 100,
+  async cargar(blob, c) {
+    try {
+      const gj = JSON.parse(await blob.text());
+      this.radio = +c.radio_sugerencia_m || 100;
+      this.list = (gj.features || []).filter(f => f.geometry?.type === 'Point').map(f => ({ ...f.properties, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+    } catch (e) { console.warn('paradas planificadas', e); this.list = []; }
+  },
+  cercana(lat, lon) {
+    if (lat == null || lon == null) return null;
+    let mejor = null;
+    for (const p of this.list) { const d = distM({ lat, lon }, p); if (d <= this.radio && (!mejor || d < mejor.d)) mejor = { p, d }; }
+    return mejor;
+  },
+};
+
 const PaqMapa = {
   capas: [],
   init(map) {
@@ -2442,6 +2465,7 @@ const PaqMapa = {
           bounds: bb ? L.latLngBounds([[bb[1], bb[0]], [bb[3], bb[2]]]) : undefined, attribution: esc(c.atribucion || ''), className: c.remuestreo === 'vecino' ? 'tele-px' : '' });
       } else if (c.tipo === 'vector' && c.formato === 'geojson') ly = L.layerGroup();
       if (ly) this.capas.push({ c, ly, blob: b, listo: c.tipo !== 'vector' });
+      if (c.rol === 'paradas_planificadas') ParadasPlan.cargar(b, c);
     });
     this.aplicar();
   },
@@ -2456,7 +2480,9 @@ const PaqMapa = {
     L.geoJSON(data, {
       renderer: this.rend,
       style: f => /Polygon/.test(f.geometry?.type) ? { color, weight: 1.2, fillColor: color, fillOpacity: 0.12, renderer: this.rend } : { color, weight: 2.2, renderer: this.rend },
-      pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 6, color: '#fff', weight: 1.5, fillColor: color, fillOpacity: 0.95, renderer: this.rend }),
+      pointToLayer: (f, ll) => c.rol === 'paradas_planificadas'
+        ? L.marker(ll, { icon: L.divIcon({ className: 'mk-pplan', html: '<i></i><b style="--pc:' + color + '">' + esc(f.properties?.orden ?? '') + '</b>', iconSize: [30, 28], iconAnchor: [4, 27] }), title: f.properties?.nombre || '' })
+        : L.circleMarker(ll, { radius: 6, color: '#fff', weight: 1.5, fillColor: color, fillOpacity: 0.95, renderer: this.rend }),
       onEachFeature: (f, l) => l.bindPopup(() => popupProps(f.properties || {}, c, f.geometry?.type === 'Point' ? l.getLatLng() : null), TELE_POP),
     }).addTo(it.ly);
     it.listo = true;
@@ -2659,7 +2685,9 @@ const Libreta = {
   async abrir(id) {
     const e = await DB.get('estaciones', id); if (!e) return;
     Settings.set('ultimaEstacion', id);
-    const parOps = '<option value="">—</option>' + Paradas.list.map(p => '<option' + (e.parada === p.id ? ' selected' : '') + '>' + p.id + '</option>').join('');
+    const nomPar = [...Paradas.list.map(p => p.id), ...ParadasPlan.list.map(p => p.nombre).filter(Boolean)];
+    if (e.parada && !nomPar.includes(e.parada)) nomPar.push(e.parada);
+    const parOps = '<option value="">—</option>' + [...new Set(nomPar)].map(n => '<option' + (e.parada === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
     let vivo = true;
     const s = Sheet.open(`
       <div class="sheet-head"><button class="icon-btn" data-close aria-label="Volver">←</button><h3 id="ed-tit">${esc(e.codigo)}</h3><button class="icon-btn" id="ed-menu" aria-label="Más">⋯</button></div>
@@ -2667,6 +2695,7 @@ const Libreta = {
         <div class="grid2"><label class="fld"><span>Código</span><input id="ed-cod" value="${esc(e.codigo)}" autocapitalize="characters"></label>
         <label class="fld"><span>Parada</span><select id="ed-par">${parOps}</select></label></div>
         <div class="card loc" id="ed-loc"></div>
+        <div class="card small sug-par" id="ed-sug" hidden></div>
         <label class="fld"><span>Unidad / litología</span><input id="ed-uni" list="dl-unidades" value="${esc(e.unidad)}" placeholder="Ej.: Fm. Agua de la Zorra"></label>
         <label class="fld"><span>Descripción</span><textarea id="ed-desc" rows="7" placeholder="Litología, textura, color, estructuras, contactos, alteración, interpretación, dudas…">${esc(e.desc)}</textarea></label>
         <label class="fld"><span>Muestras</span><input id="ed-mue" value="${esc(e.muestras)}" placeholder="Ej.: ${esc(e.codigo)}-M1, ${esc(e.codigo)}-M2"></label>
@@ -2694,10 +2723,18 @@ const Libreta = {
         <div class="row-btns wrap"><button class="btn sm" id="ed-gps">◎ GPS actual</button><button class="btn sm ghost" id="ed-mapa">Ver en mapa</button><button class="btn sm ghost" id="ed-man">Escribir</button></div>`;
       $('#ed-gps', el).onclick = async () => { toast('Buscando posición…', 0); const p = Geo.pos && Date.now() - Geo.pos.t < 10000 ? Geo.pos : await Geo.una(5000); if (p) { setPos(p); toast('Posición actualizada (±' + Math.round(p.acc) + ' m)'); } else toast('Sin señal GPS por ahora'); };
       $('#ed-mapa', el).onclick = () => { if (e.lat == null) return toast('La estación no tiene coordenadas'); Sheet.stack.slice().forEach(x => x.close()); Mapa.irA(e.lat, e.lon, 17); };
-      $('#ed-man', el).onclick = () => this.coordManual(e, renderLoc);
+      $('#ed-man', el).onclick = () => this.coordManual(e, () => { renderLoc(); renderSug(); });
     };
-    const setPos = async p => { e.lat = p.lat; e.lon = p.lon; e.acc = p.acc ?? null; e.alt = p.alt ?? null; await DB.put('estaciones', e); renderLoc(); document.dispatchEvent(new Event('estaciones')); };
-    renderLoc();
+    const renderSug = () => {
+      const box = $('#ed-sug', el), c = ParadasPlan.cercana(e.lat, e.lon);
+      if (!c || e.parada === c.p.nombre) { box.hidden = true; return; }
+      box.hidden = false;
+      box.innerHTML = `Estás a <b>${Math.round(c.d)} m</b> de la parada planificada <b>${esc(c.p.nombre)}</b>${c.p.nota ? ' (' + esc(c.p.nota) + ')' : ''}.
+        <div class="row-btns"><button class="btn sm primary" id="ed-sug-ok">Usar «${esc(c.p.nombre)}»</button></div>`;
+      $('#ed-sug-ok', el).onclick = async () => { $('#ed-par', el).value = c.p.nombre; await guardar.flush(); renderSug(); toast('Parada: ' + c.p.nombre); };
+    };
+    const setPos = async p => { e.lat = p.lat; e.lon = p.lon; e.acc = p.acc ?? null; e.alt = p.alt ?? null; await DB.put('estaciones', e); renderLoc(); renderSug(); document.dispatchEvent(new Event('estaciones')); };
+    renderLoc(); renderSug();
     const renderMeds = async () => {
       const ms = (await DB.byEst('mediciones', e.id)).sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
       $('#ed-meds', el).innerHTML = ms.length ? ms.map(m => `<div class="med"><div class="med-h"><span class="med-tipo" style="--c:${TIPO_COLOR[m.tipo] || '#555'}">${esc(TIPO[m.tipo]?.label || m.tipo)}</span><span class="med-src muted">${m.fuente === 'celular' ? 'celular' : 'manual'}</span><button class="icon-btn sm" data-del="${m.id}" aria-label="Borrar">✕</button></div><div class="med-val mono">${esc(Med.textoLargo(m))}</div>${m.obs ? '<div class="med-obs">' + esc(m.obs) + '</div>' : ''}</div>`).join('') : '<p class="muted small">Sin mediciones.</p>';

@@ -33,6 +33,14 @@ Se pueden guardar varias salidas en el celular y elegir cuál usar. La de **Para
 
 **El satélite de Esri** (Capas → «Satélite sin señal») sigue como antes: con internet se bajan las teselas de la zona. Si la salida trae el fondo Sentinel-2, ya hay un satélite sin señal sin bajar nada más.
 
+## Paradas planificadas
+
+Si en GeoExplo se cargaron **paradas a mano** («Preparar salida de campo» → Paradas planificadas), la salida trae la
+capa **«Paradas»**: banderas violetas numeradas (tocá una para ver la nota, la unidad, la alteración, la favorabilidad y
+el punto de interés o target más cercano con distancia y rumbo). Al crear una estación (o cargarle la coordenada) a
+**≤ 100 m** de una parada aparece «Estás a N m de la parada planificada…» con el botón **Usar «Parada N»**, que la
+anota en el campo *Parada* de la estación (viaja en la exportación).
+
 ## Color de limonita (pórfidos)
 
 En cada estación hay un campo **"Color de limonita (pórfidos)"** con la tabla de Blanchard (1968) para interpretar el

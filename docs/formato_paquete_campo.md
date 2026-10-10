@@ -1,6 +1,6 @@
 # Formato del paquete de salida de campo (GeoExplo → PIC Campo)
 
-**Versión del formato: 1** (2026-10-08; campos opcionales agregados en el Tramo 6, ver "Cambios"). Lo genera GeoExplo ("Preparar salida de campo", `src/geoexplo/export/campo.py`) y lo lee PIC Campo Genérico (`JoaRavaGeo/pic-campo-generico`, Tramo 6). Este documento se copia tal cual a ese repositorio (`docs/formato_paquete_campo.md`).
+**Versión del formato: 1** (2026-10-10; campos opcionales agregados en el Tramo 6 y en los pendientes previos al campo del 16/10, ver "Cambios"). Lo genera GeoExplo ("Preparar salida de campo", `src/geoexplo/export/campo.py`) y lo lee PIC Campo Genérico (`JoaRavaGeo/pic-campo-generico`, Tramo 6). Este documento se copia tal cual a ese repositorio (`docs/formato_paquete_campo.md`).
 
 ## Resumen
 
@@ -61,6 +61,8 @@ Campos comunes: `id` (único, sin espacios), `nombre`, `tipo` (`"raster"` o `"ve
 - `geometria`: `"punto"`, `"linea"`, `"poligono"` o `"mixta"`.
 - `elementos`: cantidad de elementos.
 - `estilo.color`: color sugerido (`#rrggbb`).
+- Opcionales: `rol` (uso especial de la capa; hoy solo `"paradas_planificadas"`, ver abajo), `estilo.simbolo`
+  (`"bandera"`) y `radio_sugerencia_m`.
 
 Los atributos son los de la capa en GeoExplo, con valores simples (texto, número o booleano). Se recortan al AOI + 2 km.
 
@@ -113,6 +115,31 @@ Capa `fondo_s2` (`grupo: "fondo"`, `fondo: true`, `visible: true`, opacidad 1), 
 | `ficha_json` | La ficha completa del punto (JSON en texto), igual que en GeoExplo. |
 | `etiqueta`, `nombre`, `unidad` | Opcionales: texto corto del marcador, nombre y descripción (los usa la salida de Paramillos migrada de PIC Campo). |
 
+## Capa "Paradas" (paradas planificadas a mano)
+
+Capa vectorial de puntos con `id: "paradas_planificadas"`, `nombre: "Paradas"`, `rol: "paradas_planificadas"`,
+`estilo: {"color": "#6a1b9a", "simbolo": "bandera"}` y `radio_sugerencia_m: 100`. Son las paradas que el usuario carga a
+mano en GeoExplo (nombre, lat, lon, nota, o una lista pegada `lat, lon[, nombre[, nota]]`), **aparte** de los puntos de
+interés (`paradas.geojson`) y los targets. Un lector que no conoce `rol` la dibuja como cualquier capa de puntos (por eso
+la versión sigue siendo 1). PIC Campo Genérico la dibuja con banderas numeradas y, al crear o mover una estación a
+≤ `radio_sugerencia_m` de una parada, sugiere su nombre para el campo "Parada" de la estación.
+
+Propiedades (texto o número; lo interpretativo es lo que dice el proyecto en ese punto, como hipótesis):
+
+| Propiedad | Descripción |
+|---|---|
+| `orden` | 1, 2, … (orden de la lista). |
+| `nombre`, `nota` | Lo que cargó el usuario. |
+| `tipo` | `"parada planificada"`. |
+| `geologia` | Unidad · litología · edad (fuente) de la geología combinada (o la mejor de SIGAM) en el punto. |
+| `alteracion` | Clase de la síntesis de alteración en el punto (`sin alteración marcada`, `sin dato`). |
+| `favorabilidad` | Favorabilidad por modelo en el punto (`porfido 0.83, vetas 0.41`). |
+| `cercano`, `cercano_tipo` | Punto de interés o target más cercano (`PI-10`, `punto de interés` / `target porfido`). |
+| `cercano_m`, `cercano_rumbo` | Distancia (m) y rumbo (°, geográfico, desde la parada hacia el objetivo). |
+| `cercano_texto` | Lo mismo en texto (`PI-10 (punto de interés) a 362 m, rumbo 49° (NE)`). |
+
+La guía (`guia.md`) agrega una sección `## Paradas planificadas` con lo mismo.
+
 ## `guia.md`
 
 Markdown simple: una sección por parada, con ubicación, puntaje, confianza, ocurrencia más cercana, avisos y la lista "Qué verificar".
@@ -154,4 +181,7 @@ Las usa la salida de Paramillos (PIC I 2026), que estaba embebida en la app orig
 
 Historial:
 
+- **Pendientes previos al campo (2026-10-10), sigue siendo la versión 1** (todo opcional): capa "Paradas" con
+  `rol: "paradas_planificadas"`, `estilo.simbolo` y `radio_sugerencia_m`. Los paquetes anteriores siguen valiendo y un
+  lector anterior muestra la capa como puntos comunes.
 - **Tramo 6 (2026-10-08), sigue siendo la versión 1** (todo opcional): capa de fondo satelital Sentinel-2 (`fondo`, `fechas`), `remuestreo`, leyendas con paleta como lista y `tipo: "nota"`, colores `#rrggbb`, paradas sin geometría y con `etiqueta`/`nombre`/`unidad`, `relieve` y `extras.pic` para PIC Campo.
